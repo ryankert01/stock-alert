@@ -16,19 +16,13 @@ function getAlert(drawdown) {
   return null;
 }
 
-async function fetchQuotes(tickers, attempt = 0) {
+async function fetchQuotes(tickers) {
   const res = await fetch(`/api/quote?symbols=${tickers.join(",")}`);
 
   const contentType = res.headers.get("content-type") || "";
   if (!contentType.includes("application/json")) {
-    // Retry up to 2 times with backoff — the API function may be cold-starting
-    // or Cloudflare's SPA fallback may have served index.html transiently
-    if (attempt < 2) {
-      await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
-      return fetchQuotes(tickers, attempt + 1);
-    }
     throw new Error(
-      `API returned ${contentType || "unknown content type"} instead of JSON — the server may be unavailable (retried ${attempt} times)`
+      `Expected JSON from /api/quote but received ${contentType || "unknown content type"} — the API endpoint may be down`
     );
   }
 
