@@ -2,6 +2,39 @@
 // Cloudflare Pages Function — proxies Yahoo Finance to avoid browser CORS blocks.
 // Lives in your repo. Deploys automatically with `git push`. No separate Worker needed.
 
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+// Fetch a crumb + cookie pair from Yahoo Finance (required since mid-2023).
+async function getCrumb() {
+  // Step 1: Hit a lightweight Yahoo endpoint to obtain session cookies.
+  const cookieRes = await fetch("https://fc.yahoo.com/", {
+    headers: { "User-Agent": UA },
+    redirect: "manual",
+  });
+  const setCookies = cookieRes.headers.getAll
+    ? cookieRes.headers.getAll("set-cookie")
+    : [cookieRes.headers.get("set-cookie")].filter(Boolean);
+
+  const cookieString = setCookies
+    .map((c) => c.split(";")[0])
+    .join("; ");
+
+  // Step 2: Use the cookies to request a crumb token.
+  const crumbRes = await fetch("https://query2.finance.yahoo.com/v1/finance/crumb", {
+    headers: {
+      "User-Agent": UA,
+      "Cookie": cookieString,
+    },
+  });
+
+  if (!crumbRes.ok) {
+    throw new Error(`Failed to obtain Yahoo crumb (HTTP ${crumbRes.status})`);
+  }
+
+  const crumb = await crumbRes.text();
+  return { crumb, cookie: cookieString };
+}
+
 export async function onRequest(context) {
   const { searchParams } = new URL(context.request.url);
   const symbols = searchParams.get("symbols");
@@ -23,13 +56,15 @@ export async function onRequest(context) {
     "regularMarketPreviousClose",
   ].join(",");
 
-  const yfUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}&fields=${fields}`;
-
   try {
+    const { crumb, cookie } = await getCrumb();
+    const yfUrl = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}&fields=${fields}&crumb=${encodeURIComponent(crumb)}`;
+
     const response = await fetch(yfUrl, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "User-Agent": UA,
         "Accept": "application/json",
+        "Cookie": cookie,
       },
     });
 
