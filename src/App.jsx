@@ -18,6 +18,14 @@ function getAlert(drawdown) {
 
 async function fetchQuotes(tickers) {
   const res = await fetch(`/api/quote?symbols=${tickers.join(",")}`);
+
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    throw new Error(
+      `Expected JSON response but received ${contentType || "unknown content type"} — the API endpoint may be unavailable`
+    );
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `HTTP ${res.status}`);

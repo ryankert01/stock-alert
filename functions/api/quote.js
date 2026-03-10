@@ -11,14 +11,19 @@ async function fetchChart(symbol) {
     headers: { "User-Agent": UA, Accept: "application/json" },
   });
 
+  const contentType = res.headers.get("content-type") || "";
+
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Yahoo returned ${res.status} for ${symbol}: ${text.slice(0, 120)}`);
   }
 
-  const contentType = res.headers.get("content-type") || "";
   if (!contentType.includes("application/json")) {
-    throw new Error(`Yahoo returned non-JSON (${contentType}) for ${symbol}`);
+    const text = await res.text();
+    const snippet = text.slice(0, 120).replace(/\n/g, " ");
+    throw new Error(
+      `Yahoo returned non-JSON for ${symbol} (content-type: ${contentType || "none"}): ${snippet}`
+    );
   }
 
   const data = await res.json();
