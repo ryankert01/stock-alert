@@ -5,7 +5,7 @@
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
-async function fetchChart(symbol) {
+async function fetchChart(symbol, attempt = 0) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=5d`;
   const res = await fetch(url, {
     headers: { "User-Agent": UA, Accept: "application/json" },
@@ -15,10 +15,20 @@ async function fetchChart(symbol) {
 
   if (!res.ok) {
     const text = await res.text();
+    // Retry once on 5xx or 429 (rate-limit) errors
+    if (attempt < 1 && (res.status >= 500 || res.status === 429)) {
+      await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+      return fetchChart(symbol, attempt + 1);
+    }
     throw new Error(`Yahoo returned ${res.status} for ${symbol}: ${text.slice(0, 120)}`);
   }
 
   if (!contentType.includes("application/json")) {
+    // Yahoo occasionally returns HTML consent/captcha pages — retry once
+    if (attempt < 1) {
+      await new Promise(r => setTimeout(r, 1000));
+      return fetchChart(symbol, attempt + 1);
+    }
     const text = await res.text();
     const snippet = text.slice(0, 120).replace(/\n/g, " ");
     throw new Error(

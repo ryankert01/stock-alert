@@ -22,7 +22,7 @@ async function fetchQuotes(tickers) {
   const contentType = res.headers.get("content-type") || "";
   if (!contentType.includes("application/json")) {
     throw new Error(
-      `Expected JSON response but received ${contentType || "unknown content type"} — the API endpoint may be unavailable`
+      `Expected JSON from /api/quote but received ${contentType || "unknown content type"} — the API endpoint may be down`
     );
   }
 
