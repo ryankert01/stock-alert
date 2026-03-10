@@ -22,7 +22,7 @@ stock-alert-cf/
 git init
 git add .
 git commit -m "init"
-gh repo create stock-alert --public --push
+gh repo create stock-alert --public --push 
 ```
 
 ### 2. Connect to Cloudflare Pages
